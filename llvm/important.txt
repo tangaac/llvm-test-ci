@@ -1,0 +1,10 @@
+You are supposed to clone llvm-project & llvm-test-suite under this directory.
+
+After that make sure you have this below
+
+llvm/
+├── cpu2006
+├── cpu2017
+├── important.txt
+├── llvm-project
+└── llvm-test-suite

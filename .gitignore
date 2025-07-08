@@ -1,0 +1,3 @@
+llvm/*
+!llvm/important.txt
+logs/*
