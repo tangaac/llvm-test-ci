@@ -25,6 +25,7 @@ BUILD_TEST_SUITE_LSX_DIR=${LOG_DIR}/build-test-suite-lsx
 UPSTREAM_LOG=$LOG_DIR/upstream.log
 RUN_LOG=$LOG_DIR/run.log
 BUILD_LOG=$LOG_DIR/build.log
+RESULTS_LOG=$LOG_DIR/results.log
 
 mkdir -p $LOG_DIR
 touch $UPSTREAM_LOG
@@ -146,7 +147,15 @@ mkdir -p $BUILD_TEST_SUITE_LSX_DIR
 {
     $BIN_DIR/llvm-lit $BUILD_TEST_SUITE_LSX_DIR -v 2>&1 || exit 1
 } | tee -a $RUN_LOG
+
 }
+
+save_results() {
+{
+    rg -U '(?s)Failed Tests.*?\nTotal Discovered Tests' -A2 $RUN_LOG 2>&1 || exit 1
+} | tee -a $RESULTS_LOG
+}
+
 
 fetch_llvm
 
@@ -156,3 +165,5 @@ fetch_test_suite
 
 build_test_suite_and_run_lsx
 build_test_suite_and_run_lasx
+
+save_results

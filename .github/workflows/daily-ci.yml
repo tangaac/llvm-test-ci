@@ -1,0 +1,77 @@
+name: Daily LLVM test
+
+on:
+  workflow_dispatch:
+
+env:
+  WORKSPACE:              ${{ github.workspace }}
+  LLVM_SOURCE_DIR:        ${{ github.workspace }}/repos/llvm-project
+  TEST_SUITE_SOURCE_DIR:  ${{ github.workspace }}/repos/llvm-test-suite
+  CPU2017_DIR:            ${{ github.workspace }}/repos/cpu2017
+  CPU2006_DIR:            ${{ github.workspace }}/repos/cpu2006
+  BUILDS_DIR:             ${{ github.workspace }}/build-daily
+
+jobs:
+  configure:
+    runs-on: [self-hosted, buildbot]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false
+      - name: Update repos
+        run: |
+          cd ${WORKSPACE}
+          sh scripts/fetch-upstream.sh
+
+      - name: Cleanup old builds
+        run: |
+          if [ -d "${BUILDS_DIR}" ]; then
+            rm -rf ${BUILDS_DIR}/*
+          else
+            mkdir -p ${BUILDS_DIR}
+          fi
+  
+  llvm:
+    needs: configure
+    runs-on: self-hosted
+    steps:
+      - name: Build LLVM Release mode
+        run: |
+          cd ${WORKSPACE}
+          sh scripts/build-llvm-release.sh
+
+      - name: Run LLVM tests
+        run: |
+          cd ${BUILDS_DIR}/build-llvm
+          lit test -v
+
+  test-suite:
+    needs: llvm
+    runs-on: self-hosted
+    steps:
+      - name: Build LLVM test suite LSX
+        env: 
+          BUILD_DIR: build-test-suite-lsx
+          FLAG: "-mlsx"
+        run: |
+          cd ${WORKSPACE}
+          sh scripts/build-test-suite.sh
+
+      - name: Run LLVM test suite LSX
+        run: |
+          cd ${BUILDS_DIR}/build-test-suite-lsx
+          lit . -v 
+          
+      - name: Build LLVM test suite LASX
+        env: 
+          BUILD_DIR: build-test-suite-lasx
+          FLAG: "-mlasx"
+        run: |
+          cd ${WORKSPACE}
+          sh scripts/build-test-suite.sh
+
+      - name: Run LLVM test suite LASX
+        run: |
+          cd ${BUILDS_DIR}/build-test-suite-lasx
+          lit . -v
+
