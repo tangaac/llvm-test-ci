@@ -1,3 +1,5 @@
-llvm/*
-!llvm/important.txt
-logs/*
+repos/*
+!repos/important.txt
+
+build-manual/*
+build-daily/*

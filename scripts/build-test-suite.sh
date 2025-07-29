@@ -1,0 +1,24 @@
+#!/bin/bash
+BUILD_TEST_SUITE=$BUILDS_DIR/$BUILD_DIR
+BIN_DIR=$BUILDS_DIR/build-llvm/bin
+
+mkdir -p $BUILD_TEST_SUITE
+cd $BUILD_TEST_SUITE
+
+cmake $TEST_SUITE_SOURCE_DIR \
+  -DCMAKE_CXX_COMPILER=$BIN_DIR/clang++ \
+  -DCMAKE_C_COMPILER=$BIN_DIR/clang \
+  -DCMAKE_Fortran_COMPILER=$BIN_DIR/flang \
+  -DCMAKE_C_FLAGS="$FLAG -Wno-implicit-int -fuse-ld=$BIN_DIR/ld.lld" \
+  -DCMAKE_CXX_FLAGS="$FLAG -Wno-implicit-int -fuse-ld=$BIN_DIR/ld.lld" \
+  -DCMAKE_Fortran_FLAGS="$FLAG" \
+  -C$TEST_SUITE_SOURCE_DIR/cmake/caches/O3.cmake \
+  -DTEST_SUITE_SPEC2006_ROOT=$CPU2006_DIR \
+  -DTEST_SUITE_SPEC2017_ROOT=$CPU2017_DIR \
+  -DTEST_SUITE_FORTRAN=ON \
+  -DTEST_SUITE_RUN_TYPE=train \
+  -LAH -DCMAKE_VERBOSE_MAKEFILE=ON \
+  -DCMAKE_BUILD_TYPE=Release \
+  -G Ninja
+
+ninja -v 
