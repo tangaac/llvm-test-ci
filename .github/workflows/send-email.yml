@@ -1,0 +1,19 @@
+name: Send email
+
+on:
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: [self-hosted, arch]
+    steps:
+      - uses: dawidd6/action-send-mail@v6
+        with: 
+          server_address: 114.242.206.163
+          username: ${{secrets.MAIL_USERNAME}}
+          password: ${{secrets.MAIL_PASSWORD}}
+          subject: LLVM test ci failed
+          to: lucin.d.ayj.oh.nso.ng1.4+brv8ysqdr@gmail.com
+          from: LLVM-test-ci
+          body: file://README.md
+           
