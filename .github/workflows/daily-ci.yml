@@ -120,10 +120,11 @@ jobs:
             echo ">Maximum of 100 lines displayed" >> $GITHUB_OUTPUT
             echo "" >> $GITHUB_OUTPUT
             head -n100 ${FAILED_TESTS} >> $GITHUB_OUTPUT
+            echo "@llvm-ci-la/llvm-test-ci" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
           fi
 
-      - name: create an issue
+      - name: Create an issue
         id: issue
         if: steps.check.outputs.FAILED == 'true'
         uses: actions-cool/issues-helper@v3

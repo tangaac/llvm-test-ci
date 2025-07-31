@@ -1,0 +1,55 @@
+name: Create an issue
+
+on:
+  workflow_dispatch:
+
+env:
+  LOG_FILE:               ${{ github.workspace }}/build-daily/daily-ci.log
+  FAILED_TESTS:           ${{ github.workspace }}/build-daily/failed-tests.txt
+
+permissions:
+  issues: write 
+  contents: read
+
+jobs:
+  results:
+    runs-on: [self-hosted, buildbot]
+    steps:
+      - name: Check failed tests
+        id: check
+        run: |
+          if rg -U '(?s)Failed Tests.*?\nTesting Time' -A1 ${LOG_FILE}; then
+            rg -U '(?s)Failed Tests.*?\nTesting Time' -A1 ${LOG_FILE} > ${FAILED_TESTS}
+            echo "See full log in ${LOG_FILE}"
+            echo "See full failed tests in ${FAILED_TESTS}"
+            echo "FAILED=true" >> $GITHUB_OUTPUT
+            echo "TITLE=$(date +'%Y %m %d') LLVM Test CI Failed" >> $GITHUB_OUTPUT
+
+            echo "BODY<<EOF" >> $GITHUB_OUTPUT
+            echo ">[!WARNING]" >> $GITHUB_OUTPUT
+            echo ">Maximum of 100 lines displayed" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            head -n100 ${FAILED_TESTS} >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create an issue
+        id: issue
+        if: steps.check.outputs.FAILED == 'true'
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'create-issue'
+          token: ${{ secrets.CI_ISSUE_TOKEN }}
+          title: ${{ steps.check.outputs.TITLE }}
+          body: ${{ steps.check.outputs.BODY }}
+          labels: 'ci failed'
+      
+      - name: Create comment
+        id: comment
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'create-comment'
+          token: ${{ secrets.CI_ISSUE_TOKEN }}
+          issue-number: ${{ steps.issue.outputs.issue-number }}
+          body: "@llvm-ci-la/llvm-test-ci"
+        
