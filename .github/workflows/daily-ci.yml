@@ -6,8 +6,7 @@ on:
     - cron: '5 16 * * *'
 
 permissions:
-  issues: write
-  contents: read
+  contents: write
 
 env:
   WORKSPACE:              ${{ github.workspace }}
@@ -17,7 +16,7 @@ env:
   CPU2006_DIR:            ${{ github.workspace }}/repos/cpu2006
   BUILDS_DIR:             ${{ github.workspace }}/build-daily
   LOG_FILE:               ${{ github.workspace }}/build-daily/daily-ci.log
-  FAILED_TESTS:           ${{ github.workspace }}/build-daily/failed-tests.txt
+  FAILED_TESTS:           ${{ github.workspace }}/failed-tests.txt
 
 jobs:
   configure:
@@ -26,6 +25,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           clean: false
+          fetch-depth: 0
 
       - name: Cleanup old builds
         run: |
@@ -46,7 +46,7 @@ jobs:
   
   llvm:
     needs: configure
-    runs-on: self-hosted
+    runs-on: [self-hosted, buildbot]
     steps:
       - name: Build LLVM Release mode
         run: |
@@ -65,7 +65,7 @@ jobs:
 
   test-suite:
     needs: llvm
-    runs-on: self-hosted
+    runs-on: [self-hosted, buildbot]
     steps:
       - name: Build LLVM test suite LSX
         env: 
@@ -103,34 +103,27 @@ jobs:
   
   results:
     needs: test-suite
-    runs-on: self-hosted
+    runs-on: [self-hosted, buildbot]
     steps:
-      - name: Check failed tests
+      - name: Generate results
         id: check
         run: |
-          if rg -U '(?s)Failed Tests.*?\nTesting Time' -A1 ${LOG_FILE}; then
-            rg -U '(?s)Failed Tests.*?\nTesting Time' -A1 ${LOG_FILE} > ${FAILED_TESTS}
-            echo "See full log in ${LOG_FILE}"
-            echo "See full failed tests in ${FAILED_TESTS}"
-            echo "FAILED=true" >> $GITHUB_OUTPUT
-            echo "TITLE=$(date +'%Y %m %d') LLVM Test CI Failed" >> $GITHUB_OUTPUT
-
-            echo "BODY<<EOF" >> $GITHUB_OUTPUT
-            echo ">[!WARNING]" >> $GITHUB_OUTPUT
-            echo ">Maximum of 100 lines displayed" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            head -n100 ${FAILED_TESTS} >> $GITHUB_OUTPUT
-            echo "@llvm-ci-la/llvm-test-ci" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+          if rg -U '(?s)Failed Tests.*?\nTesting Time' ${LOG_FILE}; then
+            rg -U '(?s)Failed Tests.*?\nTesting Time' ${LOG_FILE} | rg -v "Testing" > ${FAILED_TESTS}
+          else
+            echo "" > ${FAILED_TESTS}
           fi
 
-      - name: Create an issue
-        id: issue
-        if: steps.check.outputs.FAILED == 'true'
-        uses: actions-cool/issues-helper@v3
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git add .
+          git commit -m "$(date +'%Y %m %d') failed tests updated [bot]" || exit 0
+          echo "COMMITTED=true" >> $GITHUB_OUTPUT
+      
+      - name: Push changes
+        if: steps.check.outputs.COMMITTED == 'true'
+        uses: ad-m/github-push-action@master
         with:
-          actions: 'create-issue'
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: ${{ steps.check.outputs.TITLE }}
-          body: ${{ steps.check.outputs.BODY }}
-          labels: 'ci failed'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}

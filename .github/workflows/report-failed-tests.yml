@@ -1,0 +1,74 @@
+
+name: Report failed tests
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'failed-tests.txt'
+
+permissions:
+  issues: write
+  contents: read
+
+env:
+  FAILED_TESTS:           ${{ github.workspace }}/failed-tests.txt
+
+jobs:
+  report:
+    runs-on: [self-hosted, buildbot]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          clean: false
+          fetch-depth: 0
+      
+      - name: Check file changes
+        id: check
+        run: |
+          if git diff --name-only HEAD~ | grep -q '^failed-tests.txt$'; then
+            echo "CHANGED=true" >> $GITHUB_OUTPUT
+          fi
+
+          if [ ! -s "failed-tests.txt" ]; then
+            echo "LABELS=ci succeeded" >> $GITHUB_OUTPUT
+            echo "TITLE=$(date +'%Y %m %d') LLVM Test CI Successful" >> $GITHUB_OUTPUT
+
+            echo "BODY<<EOF" >> $GITHUB_OUTPUT
+            echo "**Congratulations!**" >> $GITHUB_OUTPUT
+            echo "All tests passed!" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+
+          else
+            echo "LABELS=ci failed" >> $GITHUB_OUTPUT
+            echo "TITLE=$(date +'%Y %m %d') LLVM Test CI Failed" >> $GITHUB_OUTPUT
+
+            echo "BODY<<EOF" >> $GITHUB_OUTPUT
+            echo ">[!WARNING]" >> $GITHUB_OUTPUT
+            echo ">Maximum of 100 lines displayed" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            head -n100 ${FAILED_TESTS} >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create an issue
+        id: issue
+        if: steps.check.outputs.CHANGED == 'true'
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'create-issue'
+          token:  ${{ secrets.CI_ISSUE_TOKEN }}
+          title:  ${{ steps.check.outputs.TITLE }}
+          body:   ${{ steps.check.outputs.BODY }}
+          labels: ${{ steps.check.outputs.LABELS }}
+
+      - name: Create comment
+        id: comment
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'create-comment'
+          token: ${{ secrets.CI_ISSUE_TOKEN }}
+          issue-number: ${{ steps.issue.outputs.issue-number }}
+          body: "@llvm-ci-la/llvm-test-ci"
+      
