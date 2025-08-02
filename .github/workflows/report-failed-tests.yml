@@ -3,9 +3,9 @@ name: Report failed tests
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'failed-tests.txt'
+  workflow_run:
+    workflows: ["daily-ci"]
+    types: [completed]
 
 permissions:
   issues: write
